@@ -1,23 +1,42 @@
-import logo from './logo.svg';
+// src/App.js
+import React, { useState } from 'react';
+import ChatRoom from './components/ChatRoom';
 import './App.css';
 
 function App() {
+  const [roomId, setRoomId] = useState("");
+  const [joined, setJoined] = useState(false);
+  const [messages, setMessages] = useState([]);
+
+  const joinRoom = () => {
+    if (roomId.trim()) setJoined(true);
+  };
+
+  const sendMessage = (msg) => {
+    // For now, just simulate sending
+    setMessages(prev => [...prev, `You: ${msg}`]);
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      {!joined ? (
+        <div className="join-screen">
+          <h1>Welcome to WIRE</h1>
+          <input
+            type="text"
+            placeholder="Enter Room ID"
+            value={roomId}
+            onChange={e => setRoomId(e.target.value)}
+          />
+          <button onClick={joinRoom}>Join Room</button>
+        </div>
+      ) : (
+        <ChatRoom
+          roomId={roomId}
+          sendMessage={sendMessage}
+          messages={messages}
+        />
+      )}
     </div>
   );
 }
