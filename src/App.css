@@ -1,0 +1,41 @@
+.App {
+  font-family: sans-serif;
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.join-screen input,
+.join-screen button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+}
+
+.chat-room {
+  max-width: 500px;
+  margin: auto;
+}
+
+.messages {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: white;
+}
+
+.message {
+  margin-bottom: 0.5rem;
+}
+
+.chat-room input {
+  padding: 0.5rem;
+  width: 70%;
+}
+
+.chat-room button {
+  padding: 0.5rem;
+  margin-left: 1rem;
+}
