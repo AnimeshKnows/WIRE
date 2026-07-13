@@ -5,7 +5,8 @@ import {
   createOffer,
   createAnswer,
   addAnswer,
-  addIceCandidate
+  addIceCandidate,
+  setSignalingInfo
 } from "./peer";
 
 // Create a room (initiator)
@@ -14,6 +15,9 @@ export async function createRoom() {
   const roomId = roomRef.key;
 
   console.log("Room created:", roomId);
+
+  // Set signaling info BEFORE creating peer/offer, so ICE candidates aren't dropped
+  setSignalingInfo(roomId, true);
 
   // Create peer connection (initiator = true)
   createPeer(true);
@@ -31,6 +35,9 @@ export async function createRoom() {
 
 // Join a room (receiver)
 export async function joinRoom(roomId) {
+  // Set signaling info BEFORE creating peer/answer, so ICE candidates aren't dropped
+  setSignalingInfo(roomId, false);
+
   const roomRef = database.ref(`rooms/${roomId}`);
 
   // Get offer from room
