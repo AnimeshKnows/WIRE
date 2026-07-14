@@ -9,6 +9,15 @@ import {
   setSignalingInfo
 } from "./peer";
 
+// Tracks every Firebase ref we attach a listener to, so cleanupSignaling()
+// can detach them all when a user leaves a room.
+let activeRefs = [];
+
+function trackRef(ref) {
+  activeRefs.push(ref);
+  return ref;
+}
+
 // Create a room (initiator)
 export async function createRoom() {
   const roomRef = database.ref("rooms").push(); // create unique room
@@ -35,44 +44,55 @@ export async function createRoom() {
 
 // Join a room (receiver)
 export async function joinRoom(roomId) {
-  // Set signaling info BEFORE creating peer/answer, so ICE candidates aren't dropped
-  setSignalingInfo(roomId, false);
-
   const roomRef = database.ref(`rooms/${roomId}`);
 
-  // Get offer from room
+  // Confirm the room exists before doing anything else
   const snapshot = await roomRef.get();
   if (!snapshot.exists()) {
-    throw new Error("Room does not exist.");
+    throw new Error("Room does not exist. Double-check the Room ID.");
   }
 
-  const roomData = snapshot.val();
-  const offer = roomData.offer;
+  // Set signaling info BEFORE creating peer/answer, so ICE candidates aren't dropped
+  setSignalingInfo(roomId, false);
 
   // Create peer (non-initiator)
   createPeer(false);
 
-  // Create answer
-  const answer = await createAnswer(offer);
-
-  // Store answer in Firebase
-  await roomRef.update({
-    answer: answer
+  // Listen (not one-time get) on the offer so a renegotiated offer sent
+  // during an ICE restart is also picked up automatically.
+  const offerRef = trackRef(roomRef.child("offer"));
+  offerRef.on("value", async (snap) => {
+    if (!snap.exists()) return;
+    try {
+      const answer = await createAnswer(snap.val());
+      await roomRef.update({ answer });
+    } catch (err) {
+      console.error("Failed to answer offer:", err);
+    }
   });
 }
 
 // Listen for answer (ONLY initiator)
 export function listenForAnswer(roomId) {
-  const answerRef = database.ref(`rooms/${roomId}/answer`);
+  const answerRef = trackRef(database.ref(`rooms/${roomId}/answer`));
 
   answerRef.on("value", async (snapshot) => {
     if (snapshot.exists()) {
       const answer = snapshot.val();
       console.log("Answer received:", answer);
 
-      await addAnswer(answer);
+      try {
+        await addAnswer(answer);
+      } catch (err) {
+        console.error("Failed to apply answer:", err);
+      }
     }
   });
+}
+
+// Push a renegotiated offer to Firebase (used during ICE restart)
+export function updateOffer(roomId, offer) {
+  return database.ref(`rooms/${roomId}`).update({ offer });
 }
 
 // Send ICE candidates
@@ -86,8 +106,8 @@ export function sendIceCandidate(roomId, candidate, isCaller) {
 
 // Listen for remote ICE candidates
 export function listenForIceCandidates(roomId, isCaller) {
-  const candidateRef = database.ref(
-    `rooms/${roomId}/${isCaller ? "calleeCandidates" : "callerCandidates"}`
+  const candidateRef = trackRef(
+    database.ref(`rooms/${roomId}/${isCaller ? "calleeCandidates" : "callerCandidates"}`)
   );
 
   candidateRef.on("child_added", (snapshot) => {
@@ -96,4 +116,10 @@ export function listenForIceCandidates(roomId, isCaller) {
 
     addIceCandidate(candidate);
   });
+}
+
+// Detaches every Firebase listener registered above. Call on leave/unmount.
+export function cleanupSignaling() {
+  activeRefs.forEach((ref) => ref.off());
+  activeRefs = [];
 }

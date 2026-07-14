@@ -39,3 +39,124 @@
   padding: 0.5rem;
   margin-left: 1rem;
 }
+.home {
+  max-width: 420px;
+  margin: 4rem auto 0;
+}
+
+.app-title {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.app-subtitle {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111;
+}
+
+.join-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.join-row input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.error-text {
+  color: #dc2626;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.status-banner {
+  padding: 0.4rem;
+  margin-bottom: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-connecting { background: #fef3c7; color: #92400e; }
+.status-connected { background: #d1fae5; color: #065f46; }
+.status-reconnecting { background: #fed7aa; color: #9a3412; }
+.status-failed,
+.status-disconnected { background: #fee2e2; color: #991b1b; }
+
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.message-row-me {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.avatar-me { background-color: #4f46e5; }
+.avatar-peer { background-color: #10b981; }
+
+.message-bubble {
+  padding: 0.5rem 0.8rem;
+  border-radius: 14px;
+  max-width: 75%;
+  background: #f1f1f1;
+  text-align: left;
+  word-break: break-word;
+}
+
+.message-row-me .message-bubble {
+  background: #4f46e5;
+  color: white;
+}
+
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-row input {
+  flex: 1;
+}
