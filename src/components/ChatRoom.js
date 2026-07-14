@@ -1,6 +1,15 @@
+// ChatRoom.js
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { sendMessage, onIncomingMessage, onConnectionStateChange, closePeer, cleanupSignaling } from "../webrtc";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  sendMessage,
+  onIncomingMessage,
+  onConnectionStateChange,
+  onPartnerLeft,
+  getActiveRoomId,
+  closePeer,
+  cleanupSignaling
+} from "../webrtc";
 
 const STATUS_TEXT = {
   connecting: "Connecting…",
@@ -16,12 +25,20 @@ const Avatar = ({ isMe }) => (
 
 const ChatRoom = () => {
   const { roomId } = useParams();
+  const navigate = useNavigate();
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("connecting");
 
   useEffect(() => {
+    // If there's no live peer connection for this room (e.g. this is a raw
+    // refresh/direct URL hit), don't sit on "connecting..." forever — bounce home.
+    if (getActiveRoomId() !== roomId) {
+      navigate("/", { replace: true });
+      return;
+    }
+
     onIncomingMessage((msg) => {
       setMessages((prev) => [...prev, { sender: "peer", text: msg }]);
     });
@@ -30,13 +47,20 @@ const ChatRoom = () => {
       setStatus(state);
     });
 
+    // Fires when the other peer's presence disappears (their refresh/close/crash).
+    onPartnerLeft(() => {
+      closePeer();
+      cleanupSignaling();
+      navigate("/", { replace: true });
+    });
+
     // Runs on unmount (leaving the room / navigating away) — prevents stale
     // connections/listeners from bleeding into the next room.
     return () => {
       closePeer();
       cleanupSignaling();
     };
-  }, []);
+  }, [roomId, navigate]);
 
   const handleSend = () => {
     if (!input.trim()) return;

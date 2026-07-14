@@ -1,4 +1,6 @@
+// peer.js
 import { sendIceCandidate, updateOffer } from "./signaling";
+import { database } from "../firebase";
 
 let peerConnection = null;
 let dataChannel = null;
@@ -8,9 +10,13 @@ let isCallerGlobal = false;
 
 let messageCallback = null;
 let connectionStateCallback = null;
+let partnerLeftCallback = null;
 
 let reconnectTimeout = null;
 let failTimeout = null;
+
+let presenceRef = null;
+let partnerPresenceRef = null;
 
 const configuration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -19,6 +25,10 @@ const configuration = {
 export function setSignalingInfo(roomId, isCaller) {
   currentRoomId = roomId;
   isCallerGlobal = isCaller;
+}
+
+export function getActiveRoomId() {
+  return currentRoomId;
 }
 
 export function onIncomingMessage(callback) {
@@ -30,8 +40,47 @@ export function onConnectionStateChange(callback) {
   connectionStateCallback = callback;
 }
 
+// Register callback for when the other peer's presence disappears (refresh/close/crash)
+export function onPartnerLeft(callback) {
+  partnerLeftCallback = callback;
+}
+
 function notifyState(state) {
   if (connectionStateCallback) connectionStateCallback(state);
+}
+
+/* ---------------------------------------------------------- */
+/* Presence                                                    */
+/* ---------------------------------------------------------- */
+
+// Call after setSignalingInfo, once roomId/isCaller are known.
+// Writes "I'm here", auto-removes it on disconnect, and watches the other side.
+export function setupPresence(roomId, isCaller) {
+  const myPath = isCaller ? "presence/caller" : "presence/callee";
+  const partnerPath = isCaller ? "presence/callee" : "presence/caller";
+
+  presenceRef = database.ref(`rooms/${roomId}/${myPath}`);
+  presenceRef.set(true);
+  presenceRef.onDisconnect().remove();
+
+  partnerPresenceRef = database.ref(`rooms/${roomId}/${partnerPath}`);
+  partnerPresenceRef.on("value", (snap) => {
+    if (!snap.exists()) {
+      if (partnerLeftCallback) partnerLeftCallback();
+    }
+  });
+}
+
+export function teardownPresence() {
+  if (partnerPresenceRef) {
+    partnerPresenceRef.off();
+    partnerPresenceRef = null;
+  }
+  if (presenceRef) {
+    presenceRef.onDisconnect().cancel();
+    presenceRef.remove();
+    presenceRef = null;
+  }
 }
 
 /* ---------------------------------------------------------- */
@@ -94,7 +143,7 @@ export function createPeer(isInitiator) {
 }
 
 /* ---------------------------------------------------------- */
-/* Reconnect logic                                             */
+/* Reconnect logic (transient ICE drops only, not refresh)     */
 /* ---------------------------------------------------------- */
 
 async function attemptIceRestart() {
@@ -177,6 +226,8 @@ export function closePeer() {
   clearTimeout(reconnectTimeout);
   clearTimeout(failTimeout);
 
+  teardownPresence();
+
   if (dataChannel) {
     dataChannel.close();
     dataChannel = null;
@@ -194,4 +245,5 @@ export function closePeer() {
   isCallerGlobal = false;
   messageCallback = null;
   connectionStateCallback = null;
+  partnerLeftCallback = null;
 }

@@ -6,7 +6,8 @@ import {
   createAnswer,
   addAnswer,
   addIceCandidate,
-  setSignalingInfo
+  setSignalingInfo,
+  setupPresence
 } from "./peer";
 
 // Tracks every Firebase ref we attach a listener to, so cleanupSignaling()
@@ -28,6 +29,9 @@ export async function createRoom() {
   // Set signaling info BEFORE creating peer/offer, so ICE candidates aren't dropped
   setSignalingInfo(roomId, true);
 
+  // Announce presence + watch for the callee leaving
+  setupPresence(roomId, true);
+
   // Create peer connection (initiator = true)
   createPeer(true);
 
@@ -35,7 +39,7 @@ export async function createRoom() {
   const offer = await createOffer();
 
   // Save offer in Firebase
-  await roomRef.set({
+  await roomRef.update({
     offer: offer
   });
 
@@ -54,6 +58,9 @@ export async function joinRoom(roomId) {
 
   // Set signaling info BEFORE creating peer/answer, so ICE candidates aren't dropped
   setSignalingInfo(roomId, false);
+
+  // Announce presence + watch for the caller leaving
+  setupPresence(roomId, false);
 
   // Create peer (non-initiator)
   createPeer(false);
