@@ -17,6 +17,12 @@ let failTimeout = null;
 
 let presenceRef = null;
 let partnerPresenceRef = null;
+let connectedInfoRef = null;
+
+let partnerLeftGraceTimeout = null;
+let hasSeenPartner = false;
+
+const PARTNER_GRACE_MS = 8000; // how long to wait after partner's presence vanishes before treating it as a real departure
 
 const configuration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -25,10 +31,6 @@ const configuration = {
 export function setSignalingInfo(roomId, isCaller) {
   currentRoomId = roomId;
   isCallerGlobal = isCaller;
-}
-
-export function getActiveRoomId() {
-  return currentRoomId;
 }
 
 export function onIncomingMessage(callback) {
@@ -40,9 +42,13 @@ export function onConnectionStateChange(callback) {
   connectionStateCallback = callback;
 }
 
-// Register callback for when the other peer's presence disappears (refresh/close/crash)
+// Register callback for when the other peer is confirmed gone (after the grace period)
 export function onPartnerLeft(callback) {
   partnerLeftCallback = callback;
+}
+
+export function getActiveRoomId() {
+  return currentRoomId;
 }
 
 function notifyState(state) {
@@ -54,24 +60,61 @@ function notifyState(state) {
 /* ---------------------------------------------------------- */
 
 // Call after setSignalingInfo, once roomId/isCaller are known.
-// Writes "I'm here", auto-removes it on disconnect, and watches the other side.
+// Writes "I'm here" (and re-writes it on every Firebase reconnect), and
+// watches the other side's presence with a grace period before declaring
+// them gone — so brief network blips don't bounce everyone home.
 export function setupPresence(roomId, isCaller) {
   const myPath = isCaller ? "presence/caller" : "presence/callee";
   const partnerPath = isCaller ? "presence/callee" : "presence/caller";
 
   presenceRef = database.ref(`rooms/${roomId}/${myPath}`);
-  presenceRef.set(true);
-  presenceRef.onDisconnect().remove();
-
   partnerPresenceRef = database.ref(`rooms/${roomId}/${partnerPath}`);
+
+  hasSeenPartner = false;
+  clearTimeout(partnerLeftGraceTimeout);
+  partnerLeftGraceTimeout = null;
+
+  // .info/connected fires whenever THIS client's socket to Firebase goes up
+  // or down. Every time it comes back up (initial connect AND every
+  // reconnect after a drop), re-write our own presence flag and re-arm
+  // onDisconnect — otherwise a reconnect after a blip would leave us with
+  // no presence flag at all until we manually rejoin.
+  connectedInfoRef = database.ref(".info/connected");
+  connectedInfoRef.on("value", (snap) => {
+    if (snap.val() === true) {
+      presenceRef.set(true);
+      presenceRef.onDisconnect().remove();
+    }
+  });
+
   partnerPresenceRef.on("value", (snap) => {
-    if (!snap.exists()) {
-      if (partnerLeftCallback) partnerLeftCallback();
+    if (snap.exists()) {
+      hasSeenPartner = true;
+      // Partner is back (or never left) - cancel any pending "they left" timer
+      if (partnerLeftGraceTimeout) {
+        clearTimeout(partnerLeftGraceTimeout);
+        partnerLeftGraceTimeout = null;
+      }
+    } else if (hasSeenPartner && !partnerLeftGraceTimeout) {
+      // Only start the grace countdown if they were actually here before -
+      // otherwise this fires while simply waiting for them to join.
+      partnerLeftGraceTimeout = setTimeout(() => {
+        partnerLeftGraceTimeout = null;
+        if (partnerLeftCallback) partnerLeftCallback();
+      }, PARTNER_GRACE_MS);
     }
   });
 }
 
 export function teardownPresence() {
+  clearTimeout(partnerLeftGraceTimeout);
+  partnerLeftGraceTimeout = null;
+  hasSeenPartner = false;
+
+  if (connectedInfoRef) {
+    connectedInfoRef.off();
+    connectedInfoRef = null;
+  }
   if (partnerPresenceRef) {
     partnerPresenceRef.off();
     partnerPresenceRef = null;
