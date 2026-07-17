@@ -1,44 +1,17 @@
-// ChatRoom.js
+// src/components/ChatRoom.js
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import {
-  sendMessage,
-  onIncomingMessage,
-  onConnectionStateChange,
-  onPartnerLeft,
-  getActiveRoomId,
-  closePeer,
-  cleanupSignaling
-} from "../webrtc";
-
-const STATUS_TEXT = {
-  connecting: "Connecting…",
-  connected: "Connected",
-  reconnecting: "Reconnecting…",
-  failed: "Connection failed",
-  disconnected: "Peer disconnected",
-};
-
-const Avatar = ({ isMe }) => (
-  <div className={`avatar ${isMe ? "avatar-me" : "avatar-peer"}`}>{isMe ? "Y" : "P"}</div>
-);
+import { useParams } from "react-router-dom";
+import { sendMessage, onIncomingMessage, onConnectionStateChange, closePeer, cleanupSignaling } from "../webrtc";
+import Oscilloscope from "./Oscilloscope";
 
 const ChatRoom = () => {
   const { roomId } = useParams();
-  const navigate = useNavigate();
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("connecting");
 
   useEffect(() => {
-    // If there's no live peer connection for this room (e.g. this is a raw
-    // refresh/direct URL hit), don't sit on "connecting..." forever — bounce home.
-    if (getActiveRoomId() !== roomId) {
-      navigate("/", { replace: true });
-      return;
-    }
-
     onIncomingMessage((msg) => {
       setMessages((prev) => [...prev, { sender: "peer", text: msg }]);
     });
@@ -47,20 +20,13 @@ const ChatRoom = () => {
       setStatus(state);
     });
 
-    // Fires when the other peer's presence disappears (their refresh/close/crash).
-    onPartnerLeft(() => {
-      closePeer();
-      cleanupSignaling();
-      navigate("/", { replace: true });
-    });
-
     // Runs on unmount (leaving the room / navigating away) — prevents stale
     // connections/listeners from bleeding into the next room.
     return () => {
       closePeer();
       cleanupSignaling();
     };
-  }, [roomId, navigate]);
+  }, []);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -71,26 +37,36 @@ const ChatRoom = () => {
   };
 
   return (
-    <div className="chat-room">
-      <h2>Room ID: {roomId}</h2>
+    <div className="device">
+      <div className="screw tl"></div>
+      <div className="screw tr"></div>
+      <div className="screw bl"></div>
+      <div className="screw br"></div>
 
-      <div className={`status-banner status-${status}`}>{STATUS_TEXT[status] || status}</div>
+      <div className="room-head">
+        <div>
+          <div className="eyebrow">Active link</div>
+          <div className="rid">{roomId}</div>
+        </div>
+      </div>
 
-      <div className="messages">
+      <Oscilloscope state={status} />
+
+      <div className="log">
         {messages.map((msg, idx) => (
-          <div key={idx} className={`message-row ${msg.sender === "me" ? "message-row-me" : "message-row-peer"}`}>
-            <Avatar isMe={msg.sender === "me"} />
-            <div className="message-bubble">{msg.text}</div>
+          <div key={idx} className={`log-row ${msg.sender === "me" ? "tx" : "rx"}`}>
+            <span className="log-tag">{msg.sender === "me" ? "TX" : "RX"}</span>
+            <span className="log-text">{msg.text}</span>
           </div>
         ))}
       </div>
 
-      <div className="input-row">
+      <div className="send-row">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Type message..."
+          placeholder="Type transmission…"
         />
         <button onClick={handleSend} disabled={status !== "connected"}>
           Send
