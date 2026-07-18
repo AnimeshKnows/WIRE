@@ -22,17 +22,44 @@ let connectedInfoRef = null;
 let partnerLeftGraceTimeout = null;
 let hasSeenPartner = false;
 
-const PARTNER_GRACE_MS = 8000; // how long to wait after partner's presence vanishes before treating it as a real departure
+const PARTNER_GRACE_MS = 8000;
 
-const configuration = {
+const STUN_ONLY_FALLBACK = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 };
+
+let cachedIceServers = null;
+
+async function getIceServers() {
+  if (cachedIceServers) return cachedIceServers;
+
+  const domain = process.env.REACT_APP_TURN_DOMAIN;
+  const apiKey = process.env.REACT_APP_TURN_API_KEY;
+
+  if (!domain || !apiKey) {
+    console.warn("TURN credentials not configured, falling back to STUN-only");
+    return STUN_ONLY_FALLBACK;
+  }
+
+  try {
+    const response = await fetch(
+      `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`
+    );
+    if (!response.ok) throw new Error(`TURN fetch failed: ${response.status}`);
+
+    const iceServers = await response.json();
+    cachedIceServers = { iceServers };
+    return cachedIceServers;
+  } catch (err) {
+    console.error("Failed to fetch TURN credentials, falling back to STUN-only:", err);
+    return STUN_ONLY_FALLBACK;
+  }
+}
 
 export function setSignalingInfo(roomId, isCaller) {
   currentRoomId = roomId;
   isCallerGlobal = isCaller;
 }
-
 export function onIncomingMessage(callback) {
   messageCallback = callback;
 }
@@ -130,7 +157,11 @@ export function teardownPresence() {
 /* Create Peer Connection                                     */
 /* ---------------------------------------------------------- */
 
-export function createPeer(isInitiator) {
+export async function createPeer(isInitiator) {
+  const configuration = await getIceServers();
+
+  peerConnection = new RTCPeerConnection(configuration);
+  notifyState("connecting");
   peerConnection = new RTCPeerConnection(configuration);
   notifyState("connecting");
 

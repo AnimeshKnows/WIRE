@@ -33,7 +33,7 @@ export async function createRoom() {
   setupPresence(roomId, true);
 
   // Create peer connection (initiator = true)
-  createPeer(true);
+  await createPeer(true);
 
   // Create offer
   const offer = await createOffer();
@@ -63,7 +63,7 @@ export async function joinRoom(roomId) {
   setupPresence(roomId, false);
 
   // Create peer (non-initiator)
-  createPeer(false);
+  await createPeer(false);
 
   // Listen (not one-time get) on the offer so a renegotiated offer sent
   // during an ICE restart is also picked up automatically.
