@@ -1,274 +1,162 @@
-/* ---- Design tokens (from wire-prototype.html) ---- */
-:root {
-  --chassis: #1C1A15;
-  --panel: #2C2820;
-  --panel-2: #332E24;
-  --amber: #F2A83D;
-  --amber-dim: #8A6222;
-  --cream: #E8DFC8;
-  --cream-dim: #8C8672;
-  --scope: #5C7A6B;
-  --scope-bright: #8FB39F;
-  --warn: #C4553A;
-}
-
-* {
-  box-sizing: border-box;
-}
-
 .App {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: sans-serif;
   text-align: center;
   padding: 2rem;
-  background-color: var(--chassis);
+  background-color: #f8f9fa;
   min-height: 100vh;
-  color: var(--cream);
 }
 
-/* ---- Device chassis (shared shell for Home + ChatRoom) ---- */
-.device {
-  background: var(--panel);
-  border-radius: 10px;
-  padding: 28px;
-  border: 1px solid #443E30;
-  position: relative;
-  max-width: 480px;
-  margin: 2rem auto 0;
+.join-screen input,
+.join-screen button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
 }
 
-.screw {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #443E30;
-  box-shadow: inset 0 1px 0 #57503e;
-}
-.screw.tl { top: 14px; left: 14px; }
-.screw.tr { top: 14px; right: 14px; }
-.screw.bl { bottom: 14px; left: 14px; }
-.screw.br { bottom: 14px; right: 14px; }
-
-.eyebrow {
-  font-family: 'Oswald', sans-serif;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--cream-dim);
-  margin: 0 0 4px;
+.chat-room {
+  max-width: 500px;
+  margin: auto;
 }
 
-.wordmark {
-  font-family: 'Oswald', sans-serif;
-  font-weight: 600;
-  font-size: 38px;
-  letter-spacing: 0.06em;
-  color: var(--amber);
-  margin: 0 0 28px;
-  text-align: center;
-}
-.wordmark span {
-  color: var(--cream-dim);
-  font-size: 14px;
-  letter-spacing: 0.14em;
-  display: block;
-  font-weight: 500;
-  margin-top: 4px;
+.messages {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: white;
 }
 
-/* ---- HOME screen ---- */
-.readout {
-  background: var(--chassis);
-  border: 1px solid #443E30;
+.message {
+  margin-bottom: 0.5rem;
+}
+
+.chat-room input {
+  padding: 0.5rem;
+  width: 70%;
+}
+
+.chat-room button {
+  padding: 0.5rem;
+  margin-left: 1rem;
+}
+.home {
+  max-width: 420px;
+  margin: 4rem auto 0;
+}
+
+.app-title {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.app-subtitle {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
   border-radius: 6px;
-  padding: 20px 24px;
-  text-align: center;
-  margin-bottom: 20px;
-}
-.readout-value {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 40px;
-  letter-spacing: 0.08em;
-  color: var(--amber);
-  word-break: break-all;
-}
-.readout-sub {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--cream-dim);
-  margin-top: 6px;
-  letter-spacing: 0.1em;
-}
-
-.dial-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-svg.gauge {
-  overflow: visible;
-}
-
-.action-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.action-card {
-  background: var(--panel-2);
-  border: 1px solid #443E30;
-  border-radius: 6px;
-  padding: 16px;
-  text-align: center;
-}
-.action-card p {
-  font-size: 12px;
-  color: var(--cream-dim);
-  margin: 6px 0 12px;
-  line-height: 1.5;
-}
-
-.knob-btn {
-  width: 100%;
-  padding: 12px;
-  border-radius: 5px;
-  font-family: 'Oswald', sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   cursor: pointer;
-  border: 1px solid var(--amber-dim);
-  background: transparent;
-  color: var(--amber);
+  font-size: 0.95rem;
 }
-.knob-btn:disabled {
+
+.btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.knob-btn.primary {
-  background: var(--amber);
-  color: var(--chassis);
-  border-color: var(--amber);
+
+.btn-primary {
+  background-color: #4f46e5;
+  color: white;
 }
 
-.join-input {
-  width: 100%;
-  background: var(--chassis);
-  border: 1px solid #443E30;
-  color: var(--cream);
-  font-family: 'IBM Plex Mono', monospace;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  text-align: center;
-  letter-spacing: 0.08em;
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111;
 }
-.join-input::placeholder {
-  color: #5c5849;
+
+.join-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.join-row input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
 }
 
 .error-text {
-  color: var(--warn);
+  color: #dc2626;
   margin-top: 1rem;
   font-size: 0.9rem;
 }
 
-/* ---- CHATROOM screen ---- */
-.chat-room {
-  max-width: 480px;
-  margin: auto;
-}
-
-.room-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 14px;
-}
-.room-head .rid {
-  font-family: 'IBM Plex Mono', monospace;
-  color: var(--amber);
-  font-size: 14px;
-  word-break: break-all;
-}
-
-.scope-wrap {
-  background: var(--chassis);
-  border: 1px solid #443E30;
+.status-banner {
+  padding: 0.4rem;
+  margin-bottom: 0.75rem;
   border-radius: 6px;
-  padding: 10px 14px;
-  margin-bottom: 6px;
-}
-.scope-status {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  text-align: center;
-  margin: 8px 0 16px;
-}
-.scope-wrap canvas {
-  width: 100%;
-  height: 70px;
-  display: block;
-}
-
-.log {
-  background: var(--chassis);
-  border: 1px solid #443E30;
-  border-radius: 6px;
-  padding: 14px 16px;
-  height: 220px;
-  overflow-y: auto;
-  margin-bottom: 14px;
-}
-.log-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
-}
-.log-tag {
+  font-size: 0.85rem;
   font-weight: 500;
+}
+
+.status-connecting { background: #fef3c7; color: #92400e; }
+.status-connected { background: #d1fae5; color: #065f46; }
+.status-reconnecting { background: #fed7aa; color: #9a3412; }
+.status-failed,
+.status-disconnected { background: #fee2e2; color: #991b1b; }
+
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.message-row-me {
+  flex-direction: row-reverse;
+}
+
+.avatar {
   width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
   flex-shrink: 0;
 }
-.log-row.tx .log-tag { color: var(--amber); }
-.log-row.rx .log-tag { color: var(--scope-bright); }
-.log-text {
-  color: var(--cream);
-  line-height: 1.5;
+
+.avatar-me { background-color: #4f46e5; }
+.avatar-peer { background-color: #10b981; }
+
+.message-bubble {
+  padding: 0.5rem 0.8rem;
+  border-radius: 14px;
+  max-width: 75%;
+  background: #f1f1f1;
   text-align: left;
   word-break: break-word;
 }
 
-.send-row {
+.message-row-me .message-bubble {
+  background: #4f46e5;
+  color: white;
+}
+
+.input-row {
   display: flex;
-  gap: 10px;
+  gap: 0.5rem;
 }
-.send-row input {
+
+.input-row input {
   flex: 1;
-  background: var(--chassis);
-  border: 1px solid #443E30;
-  color: var(--cream);
-  font-family: 'IBM Plex Sans', sans-serif;
-  padding: 10px 12px;
-  border-radius: 4px;
-}
-.send-row button {
-  background: var(--amber);
-  color: var(--chassis);
-  border: none;
-  border-radius: 4px;
-  font-family: 'Oswald', sans-serif;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0 18px;
-  cursor: pointer;
-}
-.send-row button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
