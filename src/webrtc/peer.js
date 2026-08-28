@@ -24,37 +24,32 @@ let hasSeenPartner = false;
 
 const PARTNER_GRACE_MS = 8000;
 
-const STUN_ONLY_FALLBACK = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-};
+// Two-tier ICE strategy:
+//   Tier 1 — STUN (direct P2P, free, no relay)
+//   Tier 2 — ORP TURN via personal Metered account (relay fallback, 20 GB/month free)
+//
+// Credentials are safe client-side — ORP is a community relay, not a financial key.
+// Rotate anytime from dashboard.metered.ca if needed.
+function getIceServers() {
+  const username = process.env.REACT_APP_ORP_USERNAME;
+  const credential = process.env.REACT_APP_ORP_CREDENTIAL;
 
-let cachedIceServers = null;
-
-async function getIceServers() {
-  if (cachedIceServers) return cachedIceServers;
-
-  const domain = process.env.REACT_APP_TURN_DOMAIN;
-  const apiKey = process.env.REACT_APP_TURN_API_KEY;
-
-  if (!domain || !apiKey) {
-    console.warn("TURN credentials not configured, falling back to STUN-only");
-    return STUN_ONLY_FALLBACK;
+  if (!username || !credential) {
+    console.warn("[WIRE] ORP credentials not set — falling back to STUN only.");
+    return { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
   }
 
-  try {
-    const response = await fetch(
-      `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`
-    );
-    if (!response.ok) throw new Error(`TURN fetch failed: ${response.status}`);
-
-    const iceServers = await response.json();
-    cachedIceServers = { iceServers };
-    return cachedIceServers;
-  } catch (err) {
-    console.error("Failed to fetch TURN credentials, falling back to STUN-only:", err);
-    return STUN_ONLY_FALLBACK;
-  }
+  return {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "turn:global.relay.metered.ca:80",                username, credential },
+      { urls: "turn:global.relay.metered.ca:443",               username, credential },
+      { urls: "turn:global.relay.metered.ca:443?transport=tcp", username, credential },
+      { urls: "turns:global.relay.metered.ca:443",              username, credential },
+    ],
+  };
 }
+
 
 export function setSignalingInfo(roomId, isCaller) {
   currentRoomId = roomId;
@@ -157,11 +152,9 @@ export function teardownPresence() {
 /* Create Peer Connection                                     */
 /* ---------------------------------------------------------- */
 
-export async function createPeer(isInitiator) {
-  const configuration = await getIceServers();
+export function createPeer(isInitiator) {
+  const configuration = getIceServers();
 
-  peerConnection = new RTCPeerConnection(configuration);
-  notifyState("connecting");
   peerConnection = new RTCPeerConnection(configuration);
   notifyState("connecting");
 
