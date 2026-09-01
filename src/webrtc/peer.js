@@ -24,32 +24,39 @@ let hasSeenPartner = false;
 
 const PARTNER_GRACE_MS = 8000;
 
+let cachedIceServers = null;
+
 // Two-tier ICE strategy:
 //   Tier 1 — STUN (direct P2P, free, no relay)
-//   Tier 2 — ORP TURN via personal Metered account (relay fallback, 20 GB/month free)
-//
-// Credentials are safe client-side — ORP is a community relay, not a financial key.
-// Rotate anytime from dashboard.metered.ca if needed.
-function getIceServers() {
-  const username = process.env.REACT_APP_ORP_USERNAME;
-  const credential = process.env.REACT_APP_ORP_CREDENTIAL;
+//   Tier 2 — TURN relay (fetched from /api/turn-credentials serverless function)
+async function fetchIceServers() {
+  if (cachedIceServers) return cachedIceServers;
 
-  if (!username || !credential) {
-    console.warn("[WIRE] ORP credentials not set — falling back to STUN only.");
-    return { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+  const defaultConfiguration = {
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  };
+
+  try {
+    const res = await fetch("/api/turn-credentials");
+    if (!res.ok) {
+      console.warn(`[WIRE] /api/turn-credentials responded with ${res.status} — falling back to STUN only.`);
+      cachedIceServers = defaultConfiguration;
+      return cachedIceServers;
+    }
+
+    const data = await res.json();
+    if (data && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+      cachedIceServers = { iceServers: data.iceServers };
+    } else {
+      cachedIceServers = defaultConfiguration;
+    }
+  } catch (err) {
+    console.warn("[WIRE] Failed to fetch TURN credentials from /api/turn-credentials — falling back to STUN only.", err);
+    cachedIceServers = defaultConfiguration;
   }
 
-  return {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "turn:global.relay.metered.ca:80",                username, credential },
-      { urls: "turn:global.relay.metered.ca:443",               username, credential },
-      { urls: "turn:global.relay.metered.ca:443?transport=tcp", username, credential },
-      { urls: "turns:global.relay.metered.ca:443",              username, credential },
-    ],
-  };
+  return cachedIceServers;
 }
-
 
 export function setSignalingInfo(roomId, isCaller) {
   currentRoomId = roomId;
@@ -152,8 +159,8 @@ export function teardownPresence() {
 /* Create Peer Connection                                     */
 /* ---------------------------------------------------------- */
 
-export function createPeer(isInitiator) {
-  const configuration = getIceServers();
+export async function createPeer(isInitiator) {
+  const configuration = await fetchIceServers();
 
   peerConnection = new RTCPeerConnection(configuration);
   notifyState("connecting");
