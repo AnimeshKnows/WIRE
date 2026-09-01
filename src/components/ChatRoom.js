@@ -1,6 +1,7 @@
 // ChatRoom.js
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { database } from "../firebase";
 import {
   sendMessage,
   onIncomingMessage,
@@ -31,6 +32,16 @@ const ChatRoom = () => {
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("connecting");
 
+  const handleLeave = () => {
+    const activeId = getActiveRoomId();
+    if (activeId) {
+      database.ref(`rooms/${activeId}`).remove();
+    }
+    closePeer();
+    cleanupSignaling();
+    navigate("/", { replace: true });
+  };
+
   useEffect(() => {
     // If there's no live peer connection for this room (e.g. this is a raw
     // refresh/direct URL hit), don't sit on "connecting..." forever — bounce home.
@@ -49,6 +60,10 @@ const ChatRoom = () => {
 
     // Fires when the other peer's presence disappears (their refresh/close/crash).
     onPartnerLeft(() => {
+      const activeId = getActiveRoomId();
+      if (activeId) {
+        database.ref(`rooms/${activeId}`).remove();
+      }
       closePeer();
       cleanupSignaling();
       navigate("/", { replace: true });
@@ -72,7 +87,12 @@ const ChatRoom = () => {
 
   return (
     <div className="chat-room">
-      <h2>Room ID: {roomId}</h2>
+      <div className="chat-header">
+        <h2>Room ID: {roomId}</h2>
+        <button onClick={handleLeave} className="btn btn-secondary">
+          Leave
+        </button>
+      </div>
 
       <div className={`status-banner status-${status}`}>{STATUS_TEXT[status] || status}</div>
 
