@@ -15,10 +15,10 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     iceServers: [
       defaultStun,
-      { urls: "turn:global.relay.metered.ca:80", username, credential },
-      { urls: "turn:global.relay.metered.ca:443", username, credential },
-      { urls: "turn:global.relay.metered.ca:443?transport=tcp", username, credential },
-      { urls: "turns:global.relay.metered.ca:443", username, credential }
+      { urls: "turn:standard.relay.metered.ca:80", username, credential },
+      { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username, credential },
+      { urls: "turn:standard.relay.metered.ca:443", username, credential },
+      { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username, credential }
     ]
   });
 };
