@@ -1,0 +1,5 @@
+# Block committing any .env file (matching .gitignore patterns, excluding .env.example)
+if git diff --cached --name-only | grep -E '^\.env(\..+)?$' | grep -v '^\.env\.example$' > /dev/null; then
+  echo "Error: Attempting to commit a .env file. Aborting commit." >&2
+  exit 1
+fi

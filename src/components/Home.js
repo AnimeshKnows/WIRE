@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { createRoom, joinRoom, listenForAnswer, listenForIceCandidates } from "../webrtc";
+import { createRoom, joinRoom, listenForAnswer, listenForIceCandidates, isValidRoomId } from "../webrtc";
 import { useNavigate } from "react-router-dom";
 
 const Home = () => {
@@ -17,7 +17,7 @@ const Home = () => {
       listenForIceCandidates(roomId, true);
       navigate(`/room/${roomId}`);
     } catch (err) {
-      setError("Could not create a room. Please try again.");
+      setError(err.message || "Could not create a room. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -25,9 +25,13 @@ const Home = () => {
 
   const handleJoinRoom = async () => {
     if (!roomIdInput.trim()) return;
+    const roomId = roomIdInput.trim();
+    if (!isValidRoomId(roomId)) {
+      setError("Invalid Room ID — use only letters, numbers, hyphens, underscores");
+      return;
+    }
     setError("");
     setLoading(true);
-    const roomId = roomIdInput.trim();
     try {
       await joinRoom(roomId);
       listenForIceCandidates(roomId, false);

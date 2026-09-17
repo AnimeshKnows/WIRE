@@ -109,7 +109,8 @@
 .status-connected { background: #d1fae5; color: #065f46; }
 .status-reconnecting { background: #fed7aa; color: #9a3412; }
 .status-failed,
-.status-disconnected { background: #fee2e2; color: #991b1b; }
+.status-disconnected,
+.status-partner-left { background: #fee2e2; color: #991b1b; }
 
 .message-row {
   display: flex;

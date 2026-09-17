@@ -1,6 +1,14 @@
 // peer.js
 import { sendIceCandidate, updateOffer } from "./signaling";
 import { database } from "../firebase";
+import {
+  MAX_MSG_SIZE,
+  createRateLimiter,
+  messageByteSize,
+  shouldAcceptIncoming,
+  validateIceCandidate,
+  validateSdp,
+} from "./validation";
 
 let peerConnection = null;
 let dataChannel = null;
@@ -22,9 +30,22 @@ let connectedInfoRef = null;
 let partnerLeftGraceTimeout = null;
 let hasSeenPartner = false;
 
-const PARTNER_GRACE_MS = 8000;
+export const PARTNER_GRACE_MS = 8000;
 
 let cachedIceServers = null;
+const outgoingRateLimiter = createRateLimiter();
+const incomingRateLimiter = createRateLimiter();
+
+function devLog(...args) {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(...args);
+  }
+}
+
+function handleIncomingData(data) {
+  if (!shouldAcceptIncoming(data, incomingRateLimiter)) return;
+  if (messageCallback) messageCallback(data);
+}
 
 // Two-tier ICE strategy:
 //   Tier 1 — STUN (direct P2P, free, no relay)
@@ -173,7 +194,7 @@ export async function createPeer(isInitiator) {
 
   peerConnection.oniceconnectionstatechange = () => {
     const state = peerConnection.iceConnectionState;
-    console.log("ICE connection state:", state);
+    devLog("ICE connection state:", state);
 
     if (state === "connected" || state === "completed") {
       clearTimeout(reconnectTimeout);
@@ -200,7 +221,7 @@ export async function createPeer(isInitiator) {
 
     remoteDataChannel.onopen = () => notifyState("connected");
     remoteDataChannel.onmessage = (e) => {
-      if (messageCallback) messageCallback(e.data);
+      handleIncomingData(e.data);
     };
   };
 
@@ -209,7 +230,7 @@ export async function createPeer(isInitiator) {
 
     dataChannel.onopen = () => notifyState("connected");
     dataChannel.onmessage = (e) => {
-      if (messageCallback) messageCallback(e.data);
+      handleIncomingData(e.data);
     };
   }
 
@@ -254,13 +275,31 @@ async function attemptIceRestart() {
 /* ---------------------------------------------------------- */
 
 export function sendMessage(message) {
-  if (dataChannel?.readyState === "open") {
-    dataChannel.send(message);
-  } else if (remoteDataChannel?.readyState === "open") {
-    remoteDataChannel.send(message);
-  } else {
-    console.warn("DataChannel is NOT open");
+  const size = messageByteSize(message);
+  if (size > MAX_MSG_SIZE) {
+    console.warn(`[WIRE] Message size (${size} bytes) exceeds limit of ${MAX_MSG_SIZE} bytes. Message skipped.`);
+    return { ok: false, reason: "size" };
   }
+
+  const channel =
+    dataChannel?.readyState === "open"
+      ? dataChannel
+      : remoteDataChannel?.readyState === "open"
+        ? remoteDataChannel
+        : null;
+
+  if (!channel) {
+    console.warn("DataChannel is NOT open");
+    return { ok: false, reason: "closed" };
+  }
+
+  if (!outgoingRateLimiter.tryConsume()) {
+    console.warn("[WIRE] Message rate limit exceeded. Message skipped.");
+    return { ok: false, reason: "rate" };
+  }
+
+  channel.send(message);
+  return { ok: true };
 }
 
 /* ---------------------------------------------------------- */
@@ -274,6 +313,10 @@ export async function createOffer() {
 }
 
 export async function createAnswer(offer) {
+  if (!validateSdp(offer, "offer")) {
+    console.warn("[WIRE] Invalid offer SDP rejected");
+    return;
+  }
   await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
@@ -281,12 +324,20 @@ export async function createAnswer(offer) {
 }
 
 export async function addAnswer(answer) {
+  if (!validateSdp(answer, "answer")) {
+    console.warn("[WIRE] Invalid answer SDP rejected");
+    return;
+  }
   // No "already set" guard anymore — ICE restarts need to re-apply a fresh answer.
   await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 }
 
 export function addIceCandidate(candidate) {
   if (!peerConnection) return;
+  if (!validateIceCandidate(candidate)) {
+    console.warn("[WIRE] Invalid ICE candidate rejected");
+    return;
+  }
   peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) => {
     console.warn("Failed to add ICE candidate:", err);
   });
@@ -299,6 +350,8 @@ export function addIceCandidate(candidate) {
 export function closePeer() {
   clearTimeout(reconnectTimeout);
   clearTimeout(failTimeout);
+  outgoingRateLimiter.reset();
+  incomingRateLimiter.reset();
 
   teardownPresence();
 

@@ -9,6 +9,7 @@ import {
   setSignalingInfo,
   setupPresence
 } from "./peer";
+import { CREATE_COOLDOWN_MS, isValidRoomId } from "./validation";
 
 // Tracks every Firebase ref we attach a listener to, so cleanupSignaling()
 // can detach them all when a user leaves a room.
@@ -19,12 +20,42 @@ function trackRef(ref) {
   return ref;
 }
 
+let lastCreateAt = 0;
+
+export function generateRoomId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+      (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)
+    );
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function resetCreateCooldown() {
+  lastCreateAt = 0;
+}
+
 // Create a room (initiator)
 export async function createRoom() {
-  const roomRef = database.ref("rooms").push(); // create unique room
-  const roomId = roomRef.key;
+  const now = Date.now();
+  if (lastCreateAt && now - lastCreateAt < CREATE_COOLDOWN_MS) {
+    throw new Error("Please wait a moment before creating another room.");
+  }
+  lastCreateAt = now;
 
-  console.log("Room created:", roomId);
+  const roomId = generateRoomId();
+  const roomRef = database.ref(`rooms/${roomId}`);
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Room created:", roomId);
+  }
 
   // Set signaling info BEFORE creating peer/offer, so ICE candidates aren't dropped
   setSignalingInfo(roomId, true);
@@ -48,6 +79,10 @@ export async function createRoom() {
 
 // Join a room (receiver)
 export async function joinRoom(roomId) {
+  if (!isValidRoomId(roomId)) {
+    throw new Error("Invalid Room ID — use only letters, numbers, hyphens, underscores");
+  }
+
   const roomRef = database.ref(`rooms/${roomId}`);
 
   // Confirm the room exists before doing anything else
@@ -72,7 +107,9 @@ export async function joinRoom(roomId) {
     if (!snap.exists()) return;
     try {
       const answer = await createAnswer(snap.val());
-      await roomRef.update({ answer });
+      if (answer) {
+        await roomRef.update({ answer });
+      }
     } catch (err) {
       console.error("Failed to answer offer:", err);
     }
@@ -86,7 +123,9 @@ export function listenForAnswer(roomId) {
   answerRef.on("value", async (snapshot) => {
     if (snapshot.exists()) {
       const answer = snapshot.val();
-      console.log("Answer received:", answer);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Answer received:", answer);
+      }
 
       try {
         await addAnswer(answer);
@@ -119,7 +158,9 @@ export function listenForIceCandidates(roomId, isCaller) {
 
   candidateRef.on("child_added", (snapshot) => {
     const candidate = snapshot.val();
-    console.log("Received ICE candidate:", candidate);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Received ICE candidate:", candidate);
+    }
 
     addIceCandidate(candidate);
   });

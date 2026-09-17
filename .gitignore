@@ -24,9 +24,15 @@ yarn-debug.log*
 yarn-error.log*
 
 
+# Obsidian vault (local knowledge graph — do not push)
+.obsidian/
+Progress.md
+security-audit.md
+
 prd.md
 architecture.md
 phases.doc.md
 design.md
 memory.md
 rules.md
+idea.md 

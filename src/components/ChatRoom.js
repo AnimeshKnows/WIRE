@@ -9,7 +9,8 @@ import {
   onPartnerLeft,
   getActiveRoomId,
   closePeer,
-  cleanupSignaling
+  cleanupSignaling,
+  capMessages,
 } from "../webrtc";
 
 const STATUS_TEXT = {
@@ -18,6 +19,7 @@ const STATUS_TEXT = {
   reconnecting: "Reconnecting…",
   failed: "Connection failed",
   disconnected: "Peer disconnected",
+  "partner-left": "Partner left the room",
 };
 
 const Avatar = ({ isMe }) => (
@@ -31,6 +33,7 @@ const ChatRoom = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("connecting");
+  const [sendError, setSendError] = useState("");
 
   const handleLeave = () => {
     const activeId = getActiveRoomId();
@@ -51,22 +54,23 @@ const ChatRoom = () => {
     }
 
     onIncomingMessage((msg) => {
-      setMessages((prev) => [...prev, { sender: "peer", text: msg }]);
+      setMessages((prev) => capMessages([...prev, { sender: "peer", text: msg }]));
     });
 
     onConnectionStateChange((state) => {
-      setStatus(state);
+      setStatus((prev) => (prev === "partner-left" ? prev : state));
     });
 
-    // Fires when the other peer's presence disappears (their refresh/close/crash).
+    // After the presence grace period, keep the transcript and show a banner
+    // instead of bouncing home (see Progress Test 9).
     onPartnerLeft(() => {
+      setStatus("partner-left");
       const activeId = getActiveRoomId();
       if (activeId) {
         database.ref(`rooms/${activeId}`).remove();
       }
       closePeer();
       cleanupSignaling();
-      navigate("/", { replace: true });
     });
 
     // Runs on unmount (leaving the room / navigating away) — prevents stale
@@ -80,8 +84,20 @@ const ChatRoom = () => {
   const handleSend = () => {
     if (!input.trim()) return;
 
-    setMessages((prev) => [...prev, { sender: "me", text: input }]);
-    sendMessage(input);
+    const result = sendMessage(input);
+    if (!result?.ok) {
+      if (result?.reason === "size") {
+        setSendError("Message is too large (max 64 KB).");
+      } else if (result?.reason === "rate") {
+        setSendError("You're sending too fast. Try again in a moment.");
+      } else {
+        setSendError("Not connected.");
+      }
+      return;
+    }
+
+    setSendError("");
+    setMessages((prev) => capMessages([...prev, { sender: "me", text: input }]));
     setInput("");
   };
 
@@ -116,6 +132,7 @@ const ChatRoom = () => {
           Send
         </button>
       </div>
+      {sendError && <p className="error-text">{sendError}</p>}
     </div>
   );
 };

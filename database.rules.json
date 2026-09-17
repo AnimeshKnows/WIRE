@@ -1,0 +1,44 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      ".read": false,
+      ".write": false,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "offer": {
+          ".validate": "newData.hasChildren(['type', 'sdp']) && newData.child('type').val() === 'offer' && newData.child('sdp').isString() && newData.child('sdp').val().length < 50000"
+        },
+        "answer": {
+          ".validate": "newData.hasChildren(['type', 'sdp']) && newData.child('type').val() === 'answer' && newData.child('sdp').isString() && newData.child('sdp').val().length < 50000"
+        },
+        "callerCandidates": {
+          "$id": {
+            ".validate": "newData.hasChildren(['candidate']) && newData.child('candidate').isString() && newData.child('candidate').val().length < 2000"
+          }
+        },
+        "calleeCandidates": {
+          "$id": {
+            ".validate": "newData.hasChildren(['candidate']) && newData.child('candidate').isString() && newData.child('candidate').val().length < 2000"
+          }
+        },
+        "presence": {
+          "caller": {
+            ".validate": "newData.isBoolean()"
+          },
+          "callee": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}
